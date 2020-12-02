@@ -1,17 +1,23 @@
 package main
 
 import (
-	"gopkg.in/go-toast/toast.v1"
+	"github.com/kevinburke/twilio-go"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"gopkg.in/go-toast/toast.v1"
 )
 
 import "fmt"
+
+const AccountSID = "ACd3f9deffef1a2df67e0246a3b9310bb7"
+const AuthToken = "aee938906be7f3845443a96c915c7c85"
 
 type LinkForCPU struct {
 	url  string
@@ -24,7 +30,7 @@ var links = []LinkForCPU{
 		name: "5900x",
 	},
 	{
-		url:  "https://www.amazon.com/AMD-Ryzen-5900X-24-Thread-Processor/dp/B08164VTWH/ref=cm_cr_arp_d_product_top?ie=UTF8",
+		url:  "https://www.amazon.com/AMD-Ryzen-5900X-24-Thread-Processor/dp/B08164VTWH/",
 		name: "5900x",
 	},
 	{
@@ -36,7 +42,43 @@ var links = []LinkForCPU{
 		name: "5900x",
 	},
 	{
+		url:  "https://www.newegg.com/Product/ComboDealDetails?ItemList=Combo.4207305&quicklink=true",
+		name: "5900x",
+	},
+	{
+		url:  "https://www.newegg.com/Product/ComboDealDetails?ItemList=Combo.4208036",
+		name: "5900x",
+	},
+	{
+		url:  "https://www.amd.com/en/direct-buy/5450881500/us?add-to-cart=true",
+		name: "5900x",
+	},
+	{
+		url:  "https://www.newegg.com/Product/ComboDealDetails?ItemList=Combo.4207319&quicklink=true",
+		name: "5900x",
+	},
+	{
 		url:  "https://www.bestbuy.com/site/amd-ryzen-9-5950x-4th-gen-16-core-32-threads-unlocked-desktop-processor-without-cooler/6438941.p?skuId=6438941",
+		name: "5950x",
+	},
+	{
+		url:  "https://www.bhphotovideo.com/c/product/1598372-REG/amd_100_100000059wof_ryzen_9_5950x_3_4.html?SID=trd-us-1012364251640402200",
+		name: "5950x",
+	},
+	{
+		url:  "https://www.tigerdirect.com/applications/SearchTools/item-details.asp?EdpNo=6945711&Sku=42259884&SRCCODE=3WCJ&utm_source=cj&utm_content=8808717&utm_term=12646018&cjevent=0454c97a343611eb81f90cd70a24060d",
+		name: "5950x",
+	},
+	{
+		url:  "https://www.newegg.com/amd-ryzen-9-5950x/p/N82E16819113663",
+		name: "5950x",
+	},
+	{
+		url:  "https://www.amazon.com/AMD-Ryzen-5950X-32-Thread-Processor/dp/B0815Y8J9N/ref=cm_cr_arp_d_product_top?ie=UTF8",
+		name: "5950x",
+	},
+	{
+		url:  "https://www.amd.com/en/direct-buy/5450881400/us?add-to-cart=true",
 		name: "5950x",
 	},
 }
@@ -49,6 +91,8 @@ var outOfStockStrings = []string{
 	"notify when available",
 }
 
+var numChecks = 0
+
 func main() {
 	var wg sync.WaitGroup
 
@@ -57,40 +101,70 @@ func main() {
 		go func(cpu LinkForCPU) {
 			for {
 				_ = checkLink(cpu)
-				time.Sleep(5 * time.Second)
+				numChecks += 1
+				fmt.Printf("Checked %d times\n", numChecks)
+				u, _ := url.Parse(cpu.url)
+
+				rand.Seed(time.Now().UnixNano())
+				n := rand.Intn(8000-3500+1) + 3500
+
+				if strings.Contains(u.Host, "amazon") {
+					time.Sleep(time.Duration(n*2) * time.Millisecond)
+				} else {
+					time.Sleep(time.Duration(n) * time.Millisecond)
+				}
+
 			}
 			wg.Done()
 		}(link)
+
+		time.Sleep(620 * time.Millisecond) // Wait half a second before starting another request so we don't have a bunch at once
 	}
 	wg.Wait()
 }
 
 func checkLink(cpu LinkForCPU) bool {
-	req, _ := http.NewRequest("GET", cpu.url, nil)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36")
-
-	url, err := url.Parse(cpu.url)
+	u, err := url.Parse(cpu.url)
 	if err != nil {
 		log.Fatalf("Error parsing URL: %s", err)
 	}
 
+	req, _ := http.NewRequest("GET", cpu.url, nil)
+	//req.Header.Set("Host", u.Host)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9,la;q=0.8")
+	req.Header.Set("Cache-Control", "max-age=0")
+	req.Header.Set("sec-fetch-dest", "document")
+	req.Header.Set("sec-fetch-mode", "navigate")
+	req.Header.Set("sec-fetch-site", "none")
+	req.Header.Set("sec-fetch-user", "?1")
+	req.Header.Set("cookie", "ubid-main=132-2823154-0272167; lc-main=en_US; s_fid=46D497D5777EF32F-193FFBD5745F7772; i18n-prefs=USD; x-main=\"NAYYynlQpGj9qKt6ACnLnLV2aT@ZxxXAxZSyoD9c4YW@RP@mGjxoe8hH@X0fTufN\"; at-main=Atza|IwEBICMV-QXExhKbFGNGUrxYnGC4Wws2rVhJRxCAh-QrTjgNvCg0MpGVLBYN1VDQc7d5W_NWiJptwbF4qci2mIsbjNVYMyO3OatH2ndfVgFkXRG_zB7UhCRyxuiWiwTtK-ipkykbAohMlW5ld78nxvarvskEz-UBC4khWwxNjD-uVD31jQN3GueXFS6CX3Uo8uxaybLAwpXlOsb9pt6wPl1ftN-H; sess-at-main=\"yhahS9IJ+rO4s2tDZjquTD8aofEF4RtFqZkF0A+Ffdg=\"; sst-main=Sst1|PQHkzImiJukp5rQkXlAA40wzCc6fMttmdWa3Ozjw95X_kUhAP1XdS8SQHO_FBQupcguVG7bX-xg_qud2FG3oWJ2E6iCi8cl_cCSEb0WtPrDmCD7L3mNEcsf2v1u1H0s8I8PoHwrsb_NKmcFuo36bKfYfBYA2aAp0ywo4AOmySnsTxdMX6Zx3uPsGDseJB7zR0xQSoR5ShdiQp_XIEsip1NXJX0679rsxU0uj-nEEuwbeF8Eljd4SUXqss045tU8v_-W_-7Jxi6nBe0FTJMWTIgsjTOApERnrGaLSa2UORHRDLxM; s_vnum=2038505867425%26vn%3D1; session-id-apay=147-9208917-0592937; session-id=134-2551160-6521529; session-token=WucVePV68jpAGenOtfBkSKXckZST7Psyr03AKSEnoiwQZS8DrUQOPdWEXoWBWoE8yO+l2KzAobUWnq3YXd2hZlr/RsyJMt10VAdQEX3rrx2DBACcKv1Afci1unkhCgzZ8l2dNS6XUAyG+MBn1SWeUiM/2//4JEcVCNkxUplLN6TX3Dra5Af5U2ZrmnGoRtWqmfzgg48dQ+/x8O56JIB1um9q/GtHa3P9; session-id-time=2082787201l; appstore-devportal-locale=en_US; s_dslv_s=Less%20than%207%20days; s_vn=1638399215415%26vn%3D1; s_invisit=true; regStatus=pre-register; s_cc=true; aws_lang=en; aws-target-session-id=1606863222600-673235; aws-target-visitor-id=1606863222601-264985; aws-target-data=%7B%22support%22%3A%221%22%7D; aws-csds-token=eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MDY4NjY4MjUsInZpc2l0b3ItaWQiOiIzNmJiMTA0MS04MTFjLTcwMzAtYzQzZC0wZWUwZmU3MDdjNjEiLCJpcCI6IjczLjU3LjI1NS41MCJ9.HUQjOopvWxLjxJFWBR8g9ri7OqHAXUqtJ76OytIXPH0; s_depth=3; s_dslv=1606863255264; s_nr=1606863255266-Repeat; csm-hit=tb:RZEKTEHZY1ACXA198WTX+s-RZEKTEHZY1ACXA198WTX|1606863321961&t:1606863321961&adb:adblk_yes")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
+
 	client := &http.Client{}
-	res, _ := client.Do(req)
+	res, err := client.Do(req)
+	if err != nil {
+		println("can't do req")
+		log.Fatal(err)
+	}
 
 	defer res.Body.Close()
 	if res.StatusCode >= 300 {
+		println("status code >= 300")
 		log.Fatal(res.StatusCode)
 	}
 
 	bs, err := ioutil.ReadAll(res.Body)
 	if err != nil {
+		println("error reading byte stream")
 		log.Fatal(err)
 	}
 
 	bodystr := string(bs)
 
-	return checkIfInStock(bodystr, cpu, url)
+	return checkIfInStock(bodystr, cpu, u)
 }
 
 func checkIfInStock(body string, cpu LinkForCPU, url *url.URL) bool {
@@ -105,18 +179,20 @@ func checkIfInStock(body string, cpu LinkForCPU, url *url.URL) bool {
 
 	}
 
+	println(body)
+
 	inStockAlert(cpu, url)
 	return true
 }
 
 func inStockAlert(cpu LinkForCPU, url *url.URL) {
-	sendTextMessage()
+	sendTextMessage(cpu, url)
 	fmt.Printf("%s is in stock at %s!\n", cpu.name, url.Host)
 
 	t := toast.Notification{
 		AppID:               "GimmeMyCPU",
 		Title:               "Stock Alert!",
-		Message:             fmt.Sprintf("%s is in stock at %s!", cpu.name, url.Host),
+		Message:             fmt.Sprintf("%s is in stock at %s!", cpu.name, url),
 		Icon:                "",
 		ActivationType:      "",
 		ActivationArguments: cpu.url,
@@ -127,6 +203,17 @@ func inStockAlert(cpu LinkForCPU, url *url.URL) {
 	_ = t.Push()
 }
 
-func sendTextMessage() {
-	println("TODO: Send text message")
+func sendTextMessage(cpu LinkForCPU, url *url.URL) {
+	client := twilio.NewClient(
+		AccountSID,
+		AuthToken,
+		nil,
+	)
+
+	client.Messages.SendMessage(
+		"15615108136",
+		"17723418776",
+		fmt.Sprintf("%s is in stock!\n%s", cpu.name, cpu.url),
+		nil,
+	)
 }
