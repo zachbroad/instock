@@ -18,6 +18,9 @@ import "fmt"
 
 const AccountSID = "ACd3f9deffef1a2df67e0246a3b9310bb7"
 const AuthToken = "aee938906be7f3845443a96c915c7c85"
+const ProxyURL = "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt"
+
+var Proxies []string
 
 type LinkForCPU struct {
 	url  string
@@ -29,10 +32,10 @@ var links = []LinkForCPU{
 		url:  "https://www.bestbuy.com/site/amd-ryzen-9-5900x-4th-gen-12-core-24-threads-unlocked-desktop-processor-without-cooler/6438942.p?skuId=6438942",
 		name: "5900x",
 	},
-	{
-		url:  "https://www.amazon.com/AMD-Ryzen-5900X-24-Thread-Processor/dp/B08164VTWH/",
-		name: "5900x",
-	},
+	//{
+	//	url:  "https://www.amazon.com/AMD-Ryzen-5900X-24-Thread-Processor/dp/B08164VTWH/",
+	//	name: "5900x",
+	//},
 	{
 		url:  "https://www.bhphotovideo.com/c/product/1598373-REG/amd_100_100000061wof_ryzen_9_5900x_3_7.html?SID=trd-us-9843011037592730000",
 		name: "5900x",
@@ -73,10 +76,10 @@ var links = []LinkForCPU{
 		url:  "https://www.newegg.com/amd-ryzen-9-5950x/p/N82E16819113663",
 		name: "5950x",
 	},
-	{
-		url:  "https://www.amazon.com/AMD-Ryzen-5950X-32-Thread-Processor/dp/B0815Y8J9N/ref=cm_cr_arp_d_product_top?ie=UTF8",
-		name: "5950x",
-	},
+	//{
+	//	url:  "https://www.amazon.com/AMD-Ryzen-5950X-32-Thread-Processor/dp/B0815Y8J9N/ref=cm_cr_arp_d_product_top?ie=UTF8",
+	//	name: "5950x",
+	//},
 	{
 		url:  "https://www.amd.com/en/direct-buy/5450881400/us?add-to-cart=true",
 		name: "5950x",
@@ -93,9 +96,36 @@ var outOfStockStrings = []string{
 
 var numChecks = 0
 
-func main() {
-	var wg sync.WaitGroup
+func getProxies() {
+	fmt.Printf("Getting proxies from %s...\n", ProxyURL)
+	res, err := http.Get(ProxyURL)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
+	bs, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	proxiesStr := string(bs)
+	Proxies = strings.Split(proxiesStr, "\n")
+
+	fmt.Printf("%d proxies found.\n", len(Proxies))
+}
+
+func main() {
+	getProxies()
+
+	go func() {
+		for {
+			time.Sleep(time.Minute * 120)
+			println("Refreshing proxies...")
+			getProxies()
+		}
+	}()
+
+	var wg sync.WaitGroup
 	for _, link := range links {
 		wg.Add(1)
 		go func(cpu LinkForCPU) {
@@ -106,7 +136,7 @@ func main() {
 				u, _ := url.Parse(cpu.url)
 
 				rand.Seed(time.Now().UnixNano())
-				n := rand.Intn(8000-3500+1) + 3500
+				n := rand.Intn(8000-4000+1) + 4000
 
 				if strings.Contains(u.Host, "amazon") {
 					time.Sleep(time.Duration(n*2) * time.Millisecond)
@@ -139,7 +169,7 @@ func checkLink(cpu LinkForCPU) bool {
 	req.Header.Set("sec-fetch-mode", "navigate")
 	req.Header.Set("sec-fetch-site", "none")
 	req.Header.Set("sec-fetch-user", "?1")
-	req.Header.Set("cookie", "ubid-main=132-2823154-0272167; lc-main=en_US; s_fid=46D497D5777EF32F-193FFBD5745F7772; i18n-prefs=USD; x-main=\"NAYYynlQpGj9qKt6ACnLnLV2aT@ZxxXAxZSyoD9c4YW@RP@mGjxoe8hH@X0fTufN\"; at-main=Atza|IwEBICMV-QXExhKbFGNGUrxYnGC4Wws2rVhJRxCAh-QrTjgNvCg0MpGVLBYN1VDQc7d5W_NWiJptwbF4qci2mIsbjNVYMyO3OatH2ndfVgFkXRG_zB7UhCRyxuiWiwTtK-ipkykbAohMlW5ld78nxvarvskEz-UBC4khWwxNjD-uVD31jQN3GueXFS6CX3Uo8uxaybLAwpXlOsb9pt6wPl1ftN-H; sess-at-main=\"yhahS9IJ+rO4s2tDZjquTD8aofEF4RtFqZkF0A+Ffdg=\"; sst-main=Sst1|PQHkzImiJukp5rQkXlAA40wzCc6fMttmdWa3Ozjw95X_kUhAP1XdS8SQHO_FBQupcguVG7bX-xg_qud2FG3oWJ2E6iCi8cl_cCSEb0WtPrDmCD7L3mNEcsf2v1u1H0s8I8PoHwrsb_NKmcFuo36bKfYfBYA2aAp0ywo4AOmySnsTxdMX6Zx3uPsGDseJB7zR0xQSoR5ShdiQp_XIEsip1NXJX0679rsxU0uj-nEEuwbeF8Eljd4SUXqss045tU8v_-W_-7Jxi6nBe0FTJMWTIgsjTOApERnrGaLSa2UORHRDLxM; s_vnum=2038505867425%26vn%3D1; session-id-apay=147-9208917-0592937; session-id=134-2551160-6521529; session-token=WucVePV68jpAGenOtfBkSKXckZST7Psyr03AKSEnoiwQZS8DrUQOPdWEXoWBWoE8yO+l2KzAobUWnq3YXd2hZlr/RsyJMt10VAdQEX3rrx2DBACcKv1Afci1unkhCgzZ8l2dNS6XUAyG+MBn1SWeUiM/2//4JEcVCNkxUplLN6TX3Dra5Af5U2ZrmnGoRtWqmfzgg48dQ+/x8O56JIB1um9q/GtHa3P9; session-id-time=2082787201l; appstore-devportal-locale=en_US; s_dslv_s=Less%20than%207%20days; s_vn=1638399215415%26vn%3D1; s_invisit=true; regStatus=pre-register; s_cc=true; aws_lang=en; aws-target-session-id=1606863222600-673235; aws-target-visitor-id=1606863222601-264985; aws-target-data=%7B%22support%22%3A%221%22%7D; aws-csds-token=eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MDY4NjY4MjUsInZpc2l0b3ItaWQiOiIzNmJiMTA0MS04MTFjLTcwMzAtYzQzZC0wZWUwZmU3MDdjNjEiLCJpcCI6IjczLjU3LjI1NS41MCJ9.HUQjOopvWxLjxJFWBR8g9ri7OqHAXUqtJ76OytIXPH0; s_depth=3; s_dslv=1606863255264; s_nr=1606863255266-Repeat; csm-hit=tb:RZEKTEHZY1ACXA198WTX+s-RZEKTEHZY1ACXA198WTX|1606863321961&t:1606863321961&adb:adblk_yes")
+	req.Header.Set("cookie", "ubid-main=132-2823154-0272167; lc-main=en_US; s_fid=46D497D5777EF32F-193FFBD5745F7772; i18n-prefs=USD; x-main=\"NAYYynlQpGj9qKt6ACnLnLV2aT@ZxxXAxZSyoD9c4YW@RP@mGjxoe8hH@X0fTufN\"; at-main=Atza|IwEBICMV-QXExhKbFGNGUrxYnGC4Wws2rVhJRxCAh-QrTjgNvCg0MpGVLBYN1VDQc7d5W_NWiJptwbF4qci2mIsbjNVYMyO3OatH2ndfVgFkXRG_zB7UhCRyxuiWiwTtK-ipkykbAohMlW5ld78nxvarvskEz-UBC4khWwxNjD-uVD31jQN3GueXFS6CX3Uo8uxaybLAwpXlOsb9pt6wPl1ftN-H; sess-at-main=\"yhahS9IJ+rO4s2tDZjquTD8aofEF4RtFqZkF0A+Ffdg=\"; sst-main=Sst1|PQHkzImiJukp5rQkXlAA40wzCc6fMttmdWa3Ozjw95X_kUhAP1XdS8SQHO_FBQupcguVG7bX-xg_qud2FG3oWJ2E6iCi8cl_cCSEb0WtPrDmCD7L3mNEcsf2v1u1H0s8I8PoHwrsb_NKmcFuo36bKfYfBYA2aAp0ywo4AOmySnsTxdMX6Zx3uPsGDseJB7zR0xQSoR5ShdiQp_XIEsip1NXJX0679rsxU0uj-nEEuwbeF8Eljd4SUXqss045tU8v_-W_-7Jxi6nBe0FTJMWTIgsjTOApERnrGaLSa2UORHRDLxM; s_vnum=2038505867425%26vn%3D1; session-id-apay=147-9208917-0592937; session-id=134-2551160-6521529; regStatus=pre-register; aws-target-visitor-id=1606863222601-264985; aws-target-data=%7B%22support%22%3A%221%22%7D; s_dslv=1606871195959; s_vn=1638399215415%26vn%3D2; s_nr=1606871195961-Repeat; session-token=IlPIJxqkhjCNV/tukkCwg/KWJcvr16hlESv6KQf+0iOnKhD7BTxXxmER0+DmUswCKh+BDJ8jUYKwzg4XDCggJZ1qrx19PhF/XSyZsD+mlWDNzrIm3J+IIYuHZmQrlhRJ/US2JueNkFiOX4FCy12dorNVzSgGBbUIn6HtnVjALcu5/hvqag4r2gVIyIzBTcGrgLThGgP3nzjrWjh6FWsqAPSjrxXnHXfy; session-id-time=2082787201l; csm-hit=tb:9GC9Y92H4DTP9JQRYA02+s-0P0VZ6YVZCQNB0BJ64X1|1606896309366&t:1606896309366&adb:adblk_yes")
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Upgrade-Insecure-Requests", "1")
 
@@ -147,18 +177,20 @@ func checkLink(cpu LinkForCPU) bool {
 	res, err := client.Do(req)
 	if err != nil {
 		println("can't do req")
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	defer res.Body.Close()
 	if res.StatusCode >= 300 {
-		println("status code >= 300")
-		log.Fatal(res.StatusCode)
+		println("status code >= 300; waiting 30 seconds to retry")
+		log.Println(res.StatusCode)
+		time.Sleep(30 * time.Second)
 	}
 
 	bs, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		println("error reading byte stream")
+		sendText(fmt.Sprintf("error reading byte stream: %s", err))
 		log.Fatal(err)
 	}
 
@@ -203,7 +235,7 @@ func inStockAlert(cpu LinkForCPU, url *url.URL) {
 	_ = t.Push()
 }
 
-func sendTextMessage(cpu LinkForCPU, url *url.URL) {
+func sendText(msg string) {
 	client := twilio.NewClient(
 		AccountSID,
 		AuthToken,
@@ -213,7 +245,11 @@ func sendTextMessage(cpu LinkForCPU, url *url.URL) {
 	client.Messages.SendMessage(
 		"15615108136",
 		"17723418776",
-		fmt.Sprintf("%s is in stock!\n%s", cpu.name, cpu.url),
+		msg,
 		nil,
 	)
+}
+
+func sendTextMessage(cpu LinkForCPU, url *url.URL) {
+	sendText(fmt.Sprintf("%s is in stock!\n%s", cpu.name, cpu.url))
 }
