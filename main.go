@@ -136,7 +136,7 @@ func main() {
 				u, _ := url.Parse(cpu.url)
 
 				rand.Seed(time.Now().UnixNano())
-				n := rand.Intn(8000-4000+1) + 4000
+				n := rand.Intn(10000-5000+1) + 5000
 
 				if strings.Contains(u.Host, "amazon") {
 					time.Sleep(time.Duration(n*2) * time.Millisecond)
